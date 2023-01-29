@@ -1,0 +1,318 @@
+---
+title: "skripsi"
+author: "chindy"
+date: "2022-11-12"
+output: html_document
+---
+
+## Active Library
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(corrplot)
+library(plyr)
+library(gvlma)
+library(car)
+library(stats)
+library(boot)
+library(caret)
+```
+
+## Import Data
+```{r}
+data <- read_csv("C:/Users/micha/Downloads/archive/dataset_Facebook.csv")
+head(data)
+```
+
+## Describe Data
+```{r}
+glimpse(data)
+```
+
+## Deskriptif Data
+```{r}
+summary(data)
+```
+
+## Check Missing Value
+```{r}
+colSums(is.na(data))
+```
+
+## Impute Missing Value
+```{r}
+data$like[which(is.na(data$like))] <- median(data$like,na.rm=T)
+data$share[which(is.na(data$share))] <- median(data$share,na.rm=T)
+data$Paid[which(is.na(data$Paid))] <- 0
+
+#check missingvalue [2]
+colSums(is.na(data))
+```
+
+## Select Variable Numeric
+```{r}
+data_num <- data %>% select_if(is.numeric) %>% select(-c(Category))
+summary(data_num)
+```
+
+## Distribution Variable Numeric
+```{r}
+data_num %>% ggplot(aes(x=data_num$`Post Month`)) + xlab("") + ggtitle("Post Month") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8) 
+
+data_num %>% ggplot(aes(x=data_num$`Post Weekday`)) + xlab("") + ggtitle("Post Weekday") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8) 
+
+data_num %>% ggplot(aes(x=data_num$`Post Hour`)) + xlab("") + ggtitle("Post Hour") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8) 
+
+data_num %>% ggplot(aes(x=data_num$`Lifetime Post Total Reach`)) + xlab("") + ggtitle("Lifetime Post Total Reach") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$`Lifetime Post Total Impressions`)) + xlab("") + ggtitle("Lifetime Post Total Impressions") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$`Lifetime Engaged Users`)) + xlab("") + ggtitle("Lifetime Engaged Users") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$`Lifetime Post Consumers`)) + xlab("") + ggtitle("Lifetime Post Consumers") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$`Lifetime Post Consumptions`)) + xlab("") + ggtitle("Lifetime Post Consumptions") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$`Lifetime Post Impressions by people who have liked your Page`)) + xlab("") + ggtitle("Lifetime Post Impressions by people who have liked your Page") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$`Lifetime Post reach by people who like your Page`)) + xlab("") + ggtitle("Lifetime Post reach by people who like your Page") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$`Lifetime People who have liked your Page and engaged with your post`)) + xlab("") + ggtitle("Lifetime People who have liked your Page and engaged with your post") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$comment)) + xlab("") + ggtitle("comment") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$like)) + xlab("") + ggtitle("like") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$share)) + xlab("") + ggtitle("share") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$`Total Interactions`)) + xlab("") + ggtitle("Total Interactions") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+data_num %>% ggplot(aes(x=data_num$`Page total likes`)) + xlab("") + ggtitle("Page total likes") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+```
+
+## Select Variable Categoric
+```{r}
+data_cat <- data %>% select_if(negate(is.numeric)) %>% add_column(Category = data$Category) %>%   add_column(Paid = data$Paid)
+
+table(data_cat$Type)
+table(data_cat$Category)
+table(data_cat$Paid)
+```
+
+## Proportion Label Variable Categoric
+```{r}
+data_cat %>% ggplot(aes(x=data_cat$Paid)) + xlab("") + ggtitle("Paid") + geom_bar(fill="#69b3a2", color="#e9ecef")
+
+data_cat %>% ggplot(aes(x=data_cat$Category)) + xlab("") + ggtitle("Category") + geom_bar(fill="#69b3a2", color="#e9ecef")
+
+data_cat %>% ggplot(aes(x=data_cat$Type)) + xlab("") + ggtitle("Type") + geom_bar(fill="#69b3a2", color="#e9ecef")
+```
+
+## Outlier Assumption [Percentage]
+```{r}
+outlier <- function(x){
+  length(which(x >  mean(x) + 3 * sd(x) | x < mean(x) - 3 * sd(x))  ) / length(x)
+}
+
+t(colwise(outlier)(data_num))
+```
+
+## Correlation Assumption
+```{r}
+data_num = data_num[,-17]
+cordata = cor(data_num)
+view(data.frame(round(cordata,2)))
+#plot from python 
+```
+
+## Coef Correlation > 0.8 [Multicolinearity]
+```{r}
+multico <- which(abs(cordata)>0.8 & row(cordata)<col(cordata), arr.ind=TRUE)
+high_cor <- matrix(colnames(cordata)[multico],ncol=2)
+view(as.data.frame(high_cor))
+```
+
+## Delete variable which is include multicolinearity
+```{r}
+data <- data %>% select(!c(`Post Month`,`Lifetime Post Consumers`,`Lifetime Engaged Users`,like,share,comment))
+head(data)
+```
+
+## Convert Categoric to Numeric
+```{r}
+data$Type <- as.numeric(as.factor(data$Type))
+data$Category <- as.numeric(data$Category)
+data$Paid <- as.numeric(data$Paid)
+str(data)
+```
+
+## PCA
+```{r}
+datax = data[,-13]
+datay = data[,13]
+
+pca_fit <- princomp(datax, scores = TRUE)
+sum <- summary(pca_fit)
+
+#summary pca
+sum
+
+#data PCA with rows
+view(as.data.frame(sum$scores))
+
+#scree plot
+plot(pca_fit,type = "l", main ="Scree plot for PCA")
+```
+
+## Eigen Values of PCA
+```{r}
+pca_var <- pca_fit$sdev^2
+t(as.data.frame(round(pca_var,2)))
+```
+
+## Percent variance explained of PCA
+```{r}
+pca_cov <- pca_var/sum(pca_var)
+t(as.data.frame(round(pca_cov,2)))
+```
+
+## Cummulative percent explained of PCA
+```{r}
+round(cumsum(pca_cov), 2)
+```
+
+## Summary
+```{r}
+get_eigenvalue(pca_fit)
+```
+
+## PCA Data
+```{r}
+pca_data <- data.frame(PC1=pca_fit$scores[,1],
+                       PC2=pca_fit$scores[,2],
+                       Y = datay$`Total Interactions`)
+#display data
+view(pca_data)
+
+#plot PC1 and PC2
+#plot(pca_fit$scores[,1], pca_fit$scores[,2], xlab="PC1", ylab = "PC2",main = "Plot PCA")
+```
+
+## Contibute Variable in PCA
+```{r}
+pca.var = get_pca_var(pca_fit)
+round((contrib = pca.var$contrib)[,c("Dim.1","Dim.2")],2)
+```
+
+```{r}
+#cex.before <- par("cex")
+#par(cex = 0.7)
+#biplot(pca_fit)
+```
+
+## PC Distribution
+```{r}
+pca_data %>% ggplot(aes(x=pca_data$PC1)) + xlab("") + ggtitle("PC 1") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+pca_data %>% ggplot(aes(x=pca_data$PC2)) + xlab("") + ggtitle("PC 2") + geom_density(fill="#69b3a2", color="#e9ecef", alpha=0.8)
+
+#Summary = distribution nonparametrics 
+```
+
+## Linearity Assumption use PCA DATA
+```{r}
+pca_regression = lm(pca_data$Y~.,data=pca_data)
+pvalue <- round(summary(pca_regression)$coefficient,3)
+view(as.data.frame(pvalue))
+
+#Pvalue > 0.05 [Not Signficant]
+#Summary = PC1 & PC2 Significant
+```
+
+## Find estimated coefficient
+```{r}
+coef_function <- function(formula, data, indices) {
+  
+  d <- data[indices,]             #allows boot to select sample
+  fit <- lm(formula, data=d)      #fit regression model
+  return(coef(fit))               #return coefficient estimates of model
+
+  }
+
+#perform bootstrapping with 50,100,150,200 replications
+boot_50 <- boot(data=pca_data, statistic=coef_function, R=50, formula=pca_data$Y~PC1+PC2)
+boot_100 <- boot(data=pca_data, statistic=coef_function, R=100, formula=pca_data$Y~PC1+PC2)
+boot_150 <- boot(data=pca_data, statistic=coef_function, R=150, formula=pca_data$Y~PC1+PC2)
+boot_200 <- boot(data=pca_data, statistic=coef_function, R=200, formula=pca_data$Y~PC1+PC2)
+```
+
+```{r}
+pca_regression
+```
+
+## Bootstrap Replicate 50
+```{r}
+plot(boot_50, index=1) #intercept of model
+plot(boot_50, index=2) #PC1 predictor variable
+plot(boot_50, index=3) #PC2 predictor variable
+
+#Rataan
+colMeans(boot_50$t)-boot_50$t0
+
+#standart deviation
+apply(boot_50$t,2,sd)
+```
+
+## Bootstrap Replicate 100
+```{r}
+plot(boot_100, index=1) #intercept of model
+plot(boot_100, index=2) #PC1 predictor variable
+plot(boot_100, index=3) #PC2 predictor variable
+
+#Rataan
+colMeans(boot_100$t)-boot_100$t0
+
+#standart deviation
+apply(boot_100$t,2,sd)
+```
+
+## Bootstrap Replicate 150
+```{r}
+plot(boot_150, index=1) #intercept of model
+plot(boot_150, index=2) #PC1 predictor variable
+plot(boot_150, index=3) #PC2 predictor variable
+
+#Rataan
+colMeans(boot_150$t)-boot_150$t0
+
+#standart deviation
+apply(boot_150$t,2,sd)
+```
+
+## Bootstrap Replicate 200
+```{r}
+plot(boot_200, index=1) #intercept of model
+plot(boot_200, index=2) #PC1 predictor variable
+plot(boot_200, index=3) #PC2 predictor variable
+
+#Rataan
+colMeans(boot_200$t)-boot_200$t0
+
+#standart deviation
+apply(boot_200$t,2,sd)
+```
+## Percentile
+```{r}
+boot.ci(boot_50, type = "perc")
+boot.ci(boot_100, type = "perc")
+boot.ci(boot_150, type = "perc")
+boot.ci(boot_200, type = "perc")
+```
+## BCA
+```{r}
+
+```
+
+## Bootstrap bca, percentil
+## Resampling 50,100,200
